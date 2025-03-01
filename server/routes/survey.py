@@ -224,4 +224,76 @@ def get_survey_responses(survey_id):
             "message": str(e)
         }), 500
     finally:
+        cursor.close()
+
+@survey_bp.route('/<survey_id>', methods=['GET'])
+def get_survey(survey_id):
+    """
+    Get details of a specific survey including owner's name and all questions
+    Public endpoint - no authentication required
+    """
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        # Get survey details with owner's name and questions
+        cursor.execute(
+            """
+            SELECT 
+                BIN_TO_UUID(s.id) as id,
+                s.title,
+                s.system_prompt,
+                s.created_at,
+                s.updated_at,
+                u.name as owner_name,
+                BIN_TO_UUID(q.id) as question_id,
+                q.question,
+                q.elaborate
+            FROM surveys s
+            JOIN users u ON u.google_user_id = s.user_id
+            LEFT JOIN questions q ON q.survey_id = s.id
+            WHERE s.id = UUID_TO_BIN(%s)
+            ORDER BY q.created_at ASC
+            """,
+            (survey_id,)
+        )
+        
+        rows = cursor.fetchall()
+        
+        if not rows:
+            return jsonify({
+                "error": "Survey not found"
+            }), 404
+            
+        # Process the results to group questions under the survey
+        survey = {
+            'id': rows[0]['id'],
+            'title': rows[0]['title'],
+            'system_prompt': rows[0]['system_prompt'],
+            'created_at': rows[0]['created_at'],
+            'updated_at': rows[0]['updated_at'],
+            'owner_name': rows[0]['owner_name'],
+            'questions': []
+        }
+        
+        # Add questions if they exist
+        for row in rows:
+            if row['question_id']:  # Check if there are questions
+                survey['questions'].append({
+                    'id': row['question_id'],
+                    'question': row['question'],
+                    'elaborate': row['elaborate']
+                })
+        
+        return jsonify({
+            "survey": survey,
+            "status": "success"
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            "error": "Failed to fetch survey details",
+            "message": str(e)
+        }), 500
+    finally:
         cursor.close() 
