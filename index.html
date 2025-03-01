@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Survey - OAuth Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        button {
+            background-color: #4285F4;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #357AE8;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Audio Survey - OAuth Demo</h1>
+    
+    <div class="container">
+        <h2>Google Authentication</h2>
+        <button id="loginButton">Login with Google</button>
+    </div>
+
+    <div id="authFlow" class="container hidden">
+        <h2>Authentication Flow</h2>
+        <div id="authStatus">Not authenticated</div>
+        <h3>Auth URL</h3>
+        <pre id="authUrl"></pre>
+    </div>
+
+    <div id="userInfo" class="container hidden">
+        <h2>User Information</h2>
+        <pre id="userInfoContent"></pre>
+    </div>
+
+    <div id="tokenInfo" class="container hidden">
+        <h2>Token Information</h2>
+        <pre id="tokenInfoContent"></pre>
+        <h3>Using the token</h3>
+        <p>To make authenticated requests, include this header:</p>
+        <pre id="authHeader"></pre>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

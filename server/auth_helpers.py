@@ -1,0 +1,1 @@
+from google_auth import verify_auth_token as auth_required 
