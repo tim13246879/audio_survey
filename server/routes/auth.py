@@ -17,7 +17,7 @@ def get_or_create_user(user_info):
     try:
         # Check if user exists
         cursor.execute(
-            "SELECT BIN_TO_UUID(id) as id, email, name, google_user_id FROM users WHERE google_user_id = %s",
+            "SELECT google_user_id, email, name FROM users WHERE google_user_id = %s",
             (user_info['user_id'],)
         )
         existing_user = cursor.fetchone()
@@ -28,16 +28,16 @@ def get_or_create_user(user_info):
         # Create new user if they don't exist
         cursor.execute(
             """
-            INSERT INTO users (email, name, google_user_id)
+            INSERT INTO users (google_user_id, email, name)
             VALUES (%s, %s, %s)
             """,
-            (user_info['email'], user_info['name'], user_info['user_id'])
+            (user_info['user_id'], user_info['email'], user_info['name'])
         )
         db.commit()
         
         # Get the newly created user
         cursor.execute(
-            "SELECT BIN_TO_UUID(id) as id, email, name, google_user_id FROM users WHERE google_user_id = %s",
+            "SELECT google_user_id, email, name FROM users WHERE google_user_id = %s",
             (user_info['user_id'],)
         )
         new_user = cursor.fetchone()

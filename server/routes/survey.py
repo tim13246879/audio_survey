@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from auth_helpers import auth_required
+from database import get_db_connection
 
 survey_bp = Blueprint('survey', __name__)
 
@@ -78,4 +79,44 @@ def get_survey_answers():
             }
         ],
         "status": "success"
-    }), 200 
+    }), 200
+
+@survey_bp.route('', methods=['GET'])
+@auth_required
+def get_user_surveys():
+    """
+    Get all surveys for the authenticated user
+    Requires authentication
+    """
+    # Get user's google_id from the auth token (added by auth_required decorator)
+    google_user_id = request.user['user_id']
+    
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        # Query to get all surveys for the user
+        cursor.execute(
+            """
+            SELECT BIN_TO_UUID(id) as id, system_prompt, created_at, updated_at 
+            FROM surveys 
+            WHERE user_id = %s 
+            ORDER BY created_at DESC
+            """,
+            (google_user_id,)
+        )
+        
+        surveys = cursor.fetchall()
+        
+        return jsonify({
+            "surveys": surveys,
+            "status": "success"
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            "error": "Failed to fetch surveys",
+            "message": str(e)
+        }), 500
+    finally:
+        cursor.close() 
