@@ -10,7 +10,9 @@ import {
   BarChart3, 
   MessageSquare,
   UserCircle,
-  LogOut
+  LogOut,
+  Copy,
+  Check
 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 
@@ -33,6 +35,7 @@ const Dashboard = () => {
   const [isHovering, setIsHovering] = useState(false);
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const { isAuthenticated, handleSignOut, token } = useGoogleAuth();
   const API_BASE_URL = 'http://localhost:5000/api';
   const navigate = useNavigate();
@@ -90,6 +93,25 @@ const Dashboard = () => {
     });
     // This would navigate to a survey responses page in a real app
     // navigate(`/survey/${surveyId}/responses`);
+  };
+
+  const handleCopyLink = async (surveyId: string) => {
+    const url = `http://localhost:6000/${surveyId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(surveyId);
+      setTimeout(() => setCopiedId(null), 2000);
+      toast({
+        title: "Success",
+        description: "Survey link copied to clipboard",
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to copy link",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -178,6 +200,22 @@ const Dashboard = () => {
                         <span className="text-xs text-muted-foreground">{survey.questions.length} questions</span>
                         <span className="text-xs text-muted-foreground mx-2">•</span>
                         <span className="text-xs text-muted-foreground">Created {new Date(survey.created_at).toLocaleDateString()}</span>
+                        <span className="text-xs text-muted-foreground mx-2">•</span>
+                        <div className="flex items-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 px-2 text-xs"
+                            onClick={() => handleCopyLink(survey.id)}
+                          >
+                            {copiedId === survey.id ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3 text-primary-purple" />
+                            )}
+                            <span className="ml-1">Copy Link</span>
+                          </Button>
+                        </div>
                       </div>
                     </div>
                     
