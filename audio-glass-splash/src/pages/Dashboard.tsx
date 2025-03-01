@@ -80,12 +80,7 @@ const Dashboard = () => {
   }
 
   const handleCreateSurvey = () => {
-    toast({
-      title: "New Survey",
-      description: "Creating a new survey...",
-    });
-    // This would navigate to a survey creation page in a real app
-    // navigate("/create-survey");
+    navigate("/create-survey");
   };
 
   const handleViewResponses = (surveyId: string) => {
