@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import AudioSurveyLogo from "@/components/AudioSurveyLogo";
 import BackgroundElements from "@/components/BackgroundElements";
@@ -14,18 +14,65 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 
-// Sample survey data - this would come from an API in a real app
-const sampleSurveys = [
-  { id: 1, title: "Customer Satisfaction Q1", responses: 14, createdAt: "2023-04-01" },
-  { id: 2, title: "Product Feedback: Mobile App", responses: 27, createdAt: "2023-03-15" },
-  { id: 3, title: "Website User Experience", responses: 8, createdAt: "2023-03-05" },
-];
+interface Question {
+  id: string;
+  question: string;
+  elaborate: boolean;
+}
+
+interface Survey {
+  id: string;
+  title: string;
+  system_prompt: string;
+  created_at: string;
+  updated_at: string;
+  questions: Question[];
+}
 
 const Dashboard = () => {
   const [isHovering, setIsHovering] = useState(false);
-  const { isAuthenticated, handleSignOut } = useGoogleAuth();
+  const [surveys, setSurveys] = useState<Survey[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { isAuthenticated, handleSignOut, token } = useGoogleAuth();
+  const API_BASE_URL = 'http://localhost:5000/api';
   const navigate = useNavigate();
   
+  useEffect(() => {
+    const fetchSurveys = async () => {
+      try {
+        if (!token) {
+          throw new Error('No authentication token available');
+        }
+
+        const response = await fetch(`${API_BASE_URL}/survey`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch surveys');
+        }
+        const data = await response.json();
+        setSurveys(data.surveys);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to load surveys",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (isAuthenticated && token) {
+      fetchSurveys();
+    }
+  }, [isAuthenticated, token]);
+
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
     navigate("/");
@@ -41,7 +88,7 @@ const Dashboard = () => {
     // navigate("/create-survey");
   };
 
-  const handleViewResponses = (surveyId: number) => {
+  const handleViewResponses = (surveyId: string) => {
     toast({
       title: "View Responses",
       description: `Viewing responses for survey #${surveyId}`,
@@ -119,39 +166,43 @@ const Dashboard = () => {
             </div>
             
             <div className="space-y-2">
-              {sampleSurveys.map((survey) => (
-                <div 
-                  key={survey.id}
-                  className="flex items-center justify-between p-3 rounded-lg hover:bg-accent/50 transition-colors"
-                >
-                  <div>
-                    <h3 className="font-medium">{survey.title}</h3>
-                    <div className="flex items-center mt-1">
-                      <MessageSquare className="h-3 w-3 text-muted-foreground mr-1" />
-                      <span className="text-xs text-muted-foreground">{survey.responses} responses</span>
-                      <span className="text-xs text-muted-foreground mx-2">•</span>
-                      <span className="text-xs text-muted-foreground">Created {survey.createdAt}</span>
-                    </div>
-                  </div>
-                  
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="flex items-center gap-1"
-                    onClick={() => handleViewResponses(survey.id)}
-                  >
-                    View
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+              {isLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading surveys...
                 </div>
-              ))}
+              ) : surveys.length > 0 ? (
+                surveys.map((survey) => (
+                  <div 
+                    key={survey.id}
+                    className="flex items-center justify-between p-3 rounded-lg hover:bg-accent/50 transition-colors"
+                  >
+                    <div>
+                      <h3 className="font-medium">{survey.title || `Survey ${survey.id.slice(0, 8)}`}</h3>
+                      <div className="flex items-center mt-1">
+                        <MessageSquare className="h-3 w-3 text-muted-foreground mr-1" />
+                        <span className="text-xs text-muted-foreground">{survey.questions.length} questions</span>
+                        <span className="text-xs text-muted-foreground mx-2">•</span>
+                        <span className="text-xs text-muted-foreground">Created {new Date(survey.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="flex items-center gap-1"
+                      onClick={() => handleViewResponses(survey.id)}
+                    >
+                      View
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No surveys yet. Create your first survey to get started!
+                </div>
+              )}
             </div>
-            
-            {sampleSurveys.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                No surveys yet. Create your first survey to get started!
-              </div>
-            )}
           </div>
           
           {/* Analytics summary */}
@@ -163,22 +214,22 @@ const Dashboard = () => {
             
             <div className="grid grid-cols-3 gap-4">
               <div className="bg-accent/30 rounded-lg p-4 text-center">
-                <div className="text-2xl font-semibold">{sampleSurveys.length}</div>
+                <div className="text-2xl font-semibold">{surveys.length}</div>
                 <div className="text-xs text-muted-foreground mt-1">Total Surveys</div>
               </div>
               
               <div className="bg-accent/30 rounded-lg p-4 text-center">
                 <div className="text-2xl font-semibold">
-                  {sampleSurveys.reduce((sum, survey) => sum + survey.responses, 0)}
+                  {surveys.reduce((sum, survey) => sum + survey.questions.length, 0)}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Total Responses</div>
+                <div className="text-xs text-muted-foreground mt-1">Total Questions</div>
               </div>
               
               <div className="bg-accent/30 rounded-lg p-4 text-center">
                 <div className="text-2xl font-semibold">
-                  {Math.round(sampleSurveys.reduce((sum, survey) => sum + survey.responses, 0) / sampleSurveys.length)}
+                  {surveys.length ? Math.round(surveys.reduce((sum, survey) => sum + survey.questions.length, 0) / surveys.length) : 0}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Avg Responses</div>
+                <div className="text-xs text-muted-foreground mt-1">Avg Questions</div>
               </div>
             </div>
           </div>

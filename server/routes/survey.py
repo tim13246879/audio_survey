@@ -23,24 +23,6 @@ def create_survey():
         "status": "success"
     }), 201
 
-@survey_bp.route('/<survey_id>', methods=['GET'])
-def get_survey(survey_id):
-    """
-    Get survey details by ID
-    No authentication required
-    """
-    # Mock response - would be replaced with actual database lookup
-    return jsonify({
-        "survey_id": survey_id,
-        "title": "Sample Survey",
-        "description": "This is a sample survey",
-        "questions": [
-            {"id": 1, "text": "Sample question 1", "type": "multiple_choice"},
-            {"id": 2, "text": "Sample question 2", "type": "text"}
-        ],
-        "status": "success"
-    }), 200
-
 @survey_bp.route('/<survey_id>', methods=['POST'])
 @auth_required
 def submit_survey(survey_id):
@@ -98,18 +80,49 @@ def get_user_surveys():
         # Query to get all surveys for the user
         cursor.execute(
             """
-            SELECT BIN_TO_UUID(id) as id, system_prompt, created_at, updated_at 
-            FROM surveys 
-            WHERE user_id = %s 
-            ORDER BY created_at DESC
+            SELECT 
+                BIN_TO_UUID(s.id) as id,
+                s.title,
+                s.system_prompt,
+                s.created_at,
+                s.updated_at,
+                BIN_TO_UUID(q.id) as question_id,
+                q.question,
+                q.elaborate
+            FROM surveys s
+            LEFT JOIN questions q ON q.survey_id = s.id
+            WHERE s.user_id = %s 
+            ORDER BY s.created_at DESC, q.created_at ASC
             """,
             (google_user_id,)
         )
         
-        surveys = cursor.fetchall()
+        rows = cursor.fetchall()
+        
+        # Group questions by survey
+        surveys = {}
+        for row in rows:
+            survey_id = row['id']
+            if survey_id not in surveys:
+                surveys[survey_id] = {
+                    'id': survey_id,
+                    'title': row['title'],
+                    'system_prompt': row['system_prompt'],
+                    'created_at': row['created_at'],
+                    'updated_at': row['updated_at'],
+                    'questions': []
+                }
+            
+            # Add question if it exists (handle surveys with no questions)
+            if row['question_id']:
+                surveys[survey_id]['questions'].append({
+                    'id': row['question_id'],
+                    'question': row['question'],
+                    'elaborate': row['elaborate']
+                })
         
         return jsonify({
-            "surveys": surveys,
+            "surveys": list(surveys.values()),
             "status": "success"
         }), 200
         
