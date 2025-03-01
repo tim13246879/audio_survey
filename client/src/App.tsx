@@ -21,6 +21,7 @@ import SidePanel from "./components/side-panel/SidePanel";
 import { Altair } from "./components/altair/Altair";
 import ControlTray from "./components/control-tray/ControlTray";
 import cn from "classnames";
+import GoogleLogin from "./helpers/GoogleLogin";
 
 const API_KEY = process.env.REACT_APP_GEMINI_API_KEY as string;
 if (typeof API_KEY !== "string") {
@@ -37,35 +38,39 @@ function App() {
   // either the screen capture, the video or null, if null we hide it
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
 
-  return (
-    <div className="App">
-      <LiveAPIProvider url={uri} apiKey={API_KEY}>
-        <div className="streaming-console">
-          <SidePanel />
-          <main>
-            <div className="main-app-area">
-              {/* APP goes here */}
-              <Altair />
-              <video
-                className={cn("stream", {
-                  hidden: !videoRef.current || !videoStream,
-                })}
-                ref={videoRef}
-                autoPlay
-                playsInline
-              />
-            </div>
+  const handleGoogleLogin = async (token: string) => {
+    try {
+      const res = await fetch("http://localhost:5000/api/survey/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: "Audio Test Survey",
+          description: "Testing audio preferences",
+          questions: [
+            {
+              text: "How would you rate this audio sample?",
+              type: "rating",
+              options: ["1", "2", "3", "4", "5"]
+            }
+          ]
+        })
+      });
 
-            <ControlTray
-              videoRef={videoRef}
-              supportsVideo={true}
-              onVideoStreamChange={setVideoStream}
-            >
-              {/* put your own buttons here */}
-            </ControlTray>
-          </main>
-        </div>
-      </LiveAPIProvider>
+      const data = await res.json();
+      console.log("User authenticated:", data);
+    } catch (err) {
+      console.error("Login failed", err);
+    }
+  };
+
+
+  return (
+    <div>
+      <h1>Google Login</h1>
+      <GoogleLogin onLogin={handleGoogleLogin} />
     </div>
   );
 }

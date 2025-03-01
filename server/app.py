@@ -10,7 +10,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'default-secret-key')
 
 # Configure CORS to allow requests from frontend
-CORS(app, resources={r"/api/*": {"origins": ["http://localhost:3000", "http://localhost:5000", "http://localhost:8000"]}})
+CORS(app, resources={r"/api/*": {"origins": ["http://localhost:3000", "http://localhost:5000", "http://localhost:8000", "http://localhost:8080"]}})
 
 # Import routes after app is defined to avoid circular imports
 from routes.auth import auth_bp
