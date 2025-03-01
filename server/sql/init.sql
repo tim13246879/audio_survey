@@ -1,3 +1,6 @@
+CREATE DATABASE IF NOT EXISTS audio_survey;
+USE audio_survey;
+
 CREATE TABLE IF NOT EXISTS users (
     google_user_id VARCHAR(255) PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
