@@ -2,12 +2,16 @@ from flask import Flask, request, jsonify
 import os
 from flask_cors import CORS
 from dotenv import load_dotenv
+from database import init_db
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'default-secret-key')
+
+# Initialize database connection pool
+init_db()
 
 # Configure CORS to allow requests from frontend
 CORS(app, resources={r"/api/*": {"origins": ["http://localhost:3000", "http://localhost:5000", "http://localhost:8000", "http://localhost:8080"]}})

@@ -1,7 +1,50 @@
 from flask import Blueprint, request, jsonify, redirect, url_for
 from google_auth import get_google_auth_url, exchange_code_for_token, verify_google_token
+from database import get_db_connection
+import mysql.connector
+from uuid import UUID
 
 auth_bp = Blueprint('auth', __name__)
+
+def get_or_create_user(user_info):
+    """
+    Check if user exists in database, if not create them.
+    Returns tuple (user_data, is_new_user)
+    """
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        # Check if user exists
+        cursor.execute(
+            "SELECT BIN_TO_UUID(id) as id, email, name, google_user_id FROM users WHERE google_user_id = %s",
+            (user_info['user_id'],)
+        )
+        existing_user = cursor.fetchone()
+        
+        if existing_user:
+            return existing_user, False
+            
+        # Create new user if they don't exist
+        cursor.execute(
+            """
+            INSERT INTO users (email, name, google_user_id)
+            VALUES (%s, %s, %s)
+            """,
+            (user_info['email'], user_info['name'], user_info['user_id'])
+        )
+        db.commit()
+        
+        # Get the newly created user
+        cursor.execute(
+            "SELECT BIN_TO_UUID(id) as id, email, name, google_user_id FROM users WHERE google_user_id = %s",
+            (user_info['user_id'],)
+        )
+        new_user = cursor.fetchone()
+        return new_user, True
+        
+    finally:
+        cursor.close()
 
 @auth_bp.route('/login', methods=['GET'])
 def login():
@@ -50,25 +93,35 @@ def callback():
 def register():
     """
     Register a new user with Google Auth 2.0
-    Required data in json:
-    - token: Google Auth token
+    Required header:
+    Authorization: Bearer <Google Auth token>
     """
-    data = request.get_json()
+    auth_header = request.headers.get('Authorization')
     
-    if not data or 'token' not in data:
-        return jsonify({"error": "Missing Google authentication token"}), 400
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"error": "Missing or invalid Authorization header. Must be 'Bearer <token>'"}), 401
 
+    # Extract token from "Bearer <token>"
+    google_token = auth_header.split(' ')[1]
+    
     # Verify the ID token and get user info
-    google_token = data.get('token')
     user_info = verify_google_token(google_token)
     
     if not user_info:
         return jsonify({"error": "Invalid Google token"}), 400
     
-    # In a real application, you would create or update a user in your database
-    
-    return jsonify({
-        "message": "User registered successfully",
-        "user_id": user_info["user_id"],
-        "status": "success"
-    }), 201 
+
+    try:
+        # Get or create user in database
+        get_or_create_user(user_info)
+        
+        return jsonify({
+            "message": "User registered successfully",
+            "status": "success"
+        }), 200
+        
+    except mysql.connector.Error as err:
+        return jsonify({
+            "error": "Database error occurred",
+            "message": str(err)
+        }), 500
