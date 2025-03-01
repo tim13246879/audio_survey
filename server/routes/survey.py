@@ -77,6 +77,7 @@ def create_survey():
         }), 500
     finally:
         cursor.close()
+        db.close()
 
 @survey_bp.route('', methods=['GET'])
 @auth_required
@@ -148,6 +149,7 @@ def get_user_surveys():
         }), 500
     finally:
         cursor.close()
+        db.close()
 
 @survey_bp.route('/<survey_id>/responses', methods=['GET'])
 @auth_required
@@ -225,6 +227,7 @@ def get_survey_responses(survey_id):
         }), 500
     finally:
         cursor.close()
+        db.close()
 
 @survey_bp.route('/<survey_id>', methods=['GET'])
 def get_survey(survey_id):
@@ -296,4 +299,5 @@ def get_survey(survey_id):
             "message": str(e)
         }), 500
     finally:
-        cursor.close() 
+        cursor.close()
+        db.close() 

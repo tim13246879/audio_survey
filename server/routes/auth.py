@@ -45,6 +45,7 @@ def get_or_create_user(user_info):
         
     finally:
         cursor.close()
+        db.close()
 
 @auth_bp.route('/login', methods=['GET'])
 def login():
