@@ -5,6 +5,8 @@ import { AudioRecorder } from "../lib/audio-recorder";
 import { useLiveAPIContext } from "../contexts/LiveAPIContext";
 import { Altair } from "../components/altair/Altair";
 import { useParams } from "react-router-dom";
+import { type FunctionDeclaration, SchemaType } from "@google/generative-ai";
+import { ToolCall } from "../multimodal-live-types";
 
 const API_KEY = "AIzaSyCaBhSLtr-ArpJvZM5U74TlUaMDABCN-Uw";
 if (typeof API_KEY !== "string") {
@@ -13,6 +15,32 @@ if (typeof API_KEY !== "string") {
 
 const host = "generativelanguage.googleapis.com";
 const uri = `wss://${host}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent`;
+
+// Function declaration for saving survey responses
+const saveSurveyResponseDeclaration: FunctionDeclaration = {
+  name: "save_survey_response",
+  description: "Save responses to survey questions",
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      answers: {
+        type: SchemaType.OBJECT,
+        description: "Object containing question IDs and their corresponding answers",
+        properties: {
+          question_id: {
+            type: SchemaType.STRING,
+            description: "The ID of the question"
+          },
+          answer: {
+            type: SchemaType.STRING,
+            description: "The answer to the question"
+          }
+        }
+      }
+    },
+    required: ["answers"],
+  },
+};
 
 function Survey() {
     const { id } = useParams();
@@ -34,11 +62,11 @@ function Survey() {
             if (fullSystemPrompt && !fullSystemPrompt.endsWith('\n')) {
               fullSystemPrompt += '\n\n';
             }
-            
-            // Loop through each question and append to the system prompt
+            // Loop through each question and append to the system prompt with question ID
             data.survey.questions.forEach((questionObj: any, index: number) => {
               if (questionObj.question) {
-                fullSystemPrompt += `${index + 1}. ${questionObj.question} ${questionObj.elaborate ? '(elaborate)' : ''}\n`;
+                console.log('Question ID:', questionObj.id);
+                fullSystemPrompt += `${index + 1}. [Question ID: ${questionObj.id}] ${questionObj.question} ${questionObj.elaborate ? '(elaborate)' : ''}\n`;
               }
             });
           }
@@ -65,10 +93,11 @@ function Survey() {
 }
 
 function SurveyContent({ systemPrompt }: { systemPrompt?: string }) {
+  const { id } = useParams();
   const [muted, setMuted] = useState(true);
   const [audioRecorder] = useState(() => new AudioRecorder());
   const [inVolume, setInVolume] = useState(0);
-  const { setConfig } = useLiveAPIContext();
+  const { setConfig, client } = useLiveAPIContext();
 
   useEffect(() => {
     setConfig({
@@ -86,8 +115,56 @@ function SurveyContent({ systemPrompt }: { systemPrompt?: string }) {
           },
         ],
       },
+      tools: [
+        { functionDeclarations: [saveSurveyResponseDeclaration] }
+      ],
     });
   }, [setConfig, systemPrompt]);
+
+  // Handle function calls from Gemini
+  useEffect(() => {
+    if (!client) return;
+
+    const handleToolCall = async (toolCall: ToolCall) => {
+      console.log('Tool call received:', toolCall);
+      const functionCall = toolCall.functionCalls?.[0];
+      
+      if (functionCall?.name === 'save_survey_response') {
+        const args = typeof functionCall.args === 'string' 
+          ? JSON.parse(functionCall.args)
+          : functionCall.args;
+          
+        console.log('Saving survey response:', args);
+        
+        try {
+          const answers = args.answers;
+          console.log('Answers:', JSON.stringify({answers}));
+          console.log('ID:', id);
+          const response = await fetch(`http://localhost:5000/api/survey/${id}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ answers })
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const result = await response.json();
+          console.log('Survey response saved:', result);
+        } catch (error) {
+          console.error('Error saving survey response:', error);
+        }
+      }
+    };
+
+    client.on('toolcall', handleToolCall);
+    return () => {
+      client.off('toolcall', handleToolCall);
+    };
+  }, [client]);
 
   return (
     <MicrophoneButton 
@@ -174,23 +251,12 @@ function MicrophoneButton({ muted, setMuted, audioRecorder, setInVolume }: Micro
       console.log("Requesting final transcript...");
       
       try {
-        // Add a special instruction to the transcript display
-        setTranscript(prev => {
-          const separator = "\n\n----- CONVERSATION ENDED -----\n\n";
-          return (prev || '') + separator + "Generating final transcript...\n";
-        });
-        
-        // Send a text message explicitly asking for a transcript
+        // Ask Gemini to save the responses
         client.send({
-          text: "Please provide a complete transcript of our conversation so far."
+          text: "Please save all the survey responses we've collected using the save_survey_response tool."
         });
-        
-        // Wait a bit before disconnecting to allow the model to respond
-        setTimeout(() => {
-          console.log("Transcript request completed");
-        }, 2000);
       } catch (err) {
-        console.error("Error requesting transcript:", err);
+        console.error("Error requesting survey save:", err);
       }
     }
   };

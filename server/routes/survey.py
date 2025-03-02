@@ -359,6 +359,7 @@ def submit_survey_response(survey_id):
         for question_id, answer in data['answers'].items():
             # Skip if question doesn't belong to this survey
             if question_id not in valid_questions:
+                print("Question ID not in valid questions:", question_id)
                 continue
                 
             cursor.execute(
