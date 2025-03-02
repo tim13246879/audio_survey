@@ -357,10 +357,10 @@ def submit_survey_response(survey_id):
         valid_questions = {row['id'] for row in cursor.fetchall()}
         print("valid_questions", valid_questions)
         
-        answer_pairs = data['answers']
-        print("answer_pairs", answer_pairs)
+        answer_data = data['answers']
+        print("answer_pairs", answer_data)
         # Insert answers
-        for question_id, answer in answer_pairs:
+        for question_id, answer in answer_data.items():
             print("question_id", question_id)
             print("answer", answer)
             # Skip if question doesn't belong to this survey
