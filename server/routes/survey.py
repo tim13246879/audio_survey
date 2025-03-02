@@ -360,22 +360,25 @@ def submit_survey_response(survey_id):
         answer_data = data['answers']
         print("answer_pairs", answer_data)
         # Insert answers
-        for question_id, answer in answer_data.items():
-            print("question_id", question_id)
-            print("answer", answer)
-            # Skip if question doesn't belong to this survey
-            if question_id.strip() not in valid_questions:
-                print("Question ID not in valid questions:", question_id)
-                continue
-                
-            cursor.execute(
-                """
-                INSERT INTO answers (id, response_id, question_id, answer)
-                VALUES (UUID_TO_BIN(%s), UUID_TO_BIN(%s), UUID_TO_BIN(%s), %s)
-                """,
-                (str(uuid.uuid4()), str(response_id), question_id, answer)
-            )
-        
+        # for question_id, answer in answer_data.items():
+
+        question_id = answer_data['question_id']
+        answer = answer_data['answer']
+        print("question_id", question_id)
+        print("answer", answer)
+        # Skip if question doesn't belong to this survey
+        if question_id.strip() not in valid_questions:
+            print("Question ID not in valid questions:", question_id)
+            raise ValueError("Question ID not in valid questions")
+            
+        cursor.execute(
+            """
+            INSERT INTO answers (id, response_id, question_id, answer)
+            VALUES (UUID_TO_BIN(%s), UUID_TO_BIN(%s), UUID_TO_BIN(%s), %s)
+            """,
+            (str(uuid.uuid4()), str(response_id), question_id, answer)
+        )
+    
         # Commit transaction
         db.commit()
         
