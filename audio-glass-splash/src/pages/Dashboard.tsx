@@ -12,7 +12,8 @@ import {
   UserCircle,
   LogOut,
   Copy,
-  Check
+  Check,
+  Download
 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 
@@ -30,6 +31,14 @@ interface Survey {
   updated_at: string;
   questions: Question[];
   response_count?: number;
+  responses?: Array<{
+    id: string;
+    created_at: string;
+    answers: Array<{
+      question: string;
+      answer: string;
+    }>;
+  }>;
 }
 
 const Dashboard = () => {
@@ -56,7 +65,8 @@ const Dashboard = () => {
             const data = await response.json();
             return {
               ...survey,
-              response_count: data.responses?.length || 0
+              response_count: data.responses?.length || 0,
+              responses: data.responses // Store the responses in the survey object
             };
           } catch (error) {
             console.error(`Error fetching responses for survey ${survey.id}:`, error);
@@ -141,6 +151,58 @@ const Dashboard = () => {
       toast({
         title: "Error",
         description: "Failed to copy link",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadResponses = async (survey: Survey) => {
+    try {
+      const responses = survey.responses || [];
+      if (responses.length === 0) {
+        toast({
+          title: "No responses",
+          description: "This survey has no responses to download",
+        });
+        return;
+      }
+
+      // Create CSV header from first response's questions
+      const firstResponse = responses[0];
+      const questions = firstResponse.answers.map(a => a.question);
+      let csv = ['Response ID,Timestamp,' + questions.map(q => `"${q}"`).join(',')].join('\n');
+
+      // Add each response as a row
+      responses.forEach(response => {
+        const row = [
+          response.id,
+          new Date(response.created_at).toISOString(),
+          ...questions.map(q => {
+            const answer = response.answers.find(a => a.question === q);
+            if (!answer || answer.answer === null) return '""';
+            return `"${answer.answer.replace(/"/g, '""')}"`;
+          })
+        ];
+        csv += '\n' + row.join(',');
+      });
+
+      // Create and download the CSV file
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${survey.title || survey.id}_responses.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Success",
+        description: "Responses downloaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download responses. Error: " + error,
         variant: "destructive",
       });
     }
@@ -235,7 +297,7 @@ const Dashboard = () => {
                         <span className="text-xs text-muted-foreground mx-2">•</span>
                         <span className="text-xs text-muted-foreground">Created {new Date(survey.created_at).toLocaleDateString()}</span>
                         <span className="text-xs text-muted-foreground mx-2">•</span>
-                        <div className="flex items-center">
+                        <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -249,6 +311,17 @@ const Dashboard = () => {
                             )}
                             <span className="ml-1">Copy Link</span>
                           </Button>
+                          {(survey.response_count || 0) > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 px-2 text-xs"
+                              onClick={() => handleDownloadResponses(survey)}
+                            >
+                              <Download className="h-3 w-3 text-primary-purple" />
+                              <span className="ml-1">Download CSV</span>
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
