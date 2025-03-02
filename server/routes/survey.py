@@ -300,4 +300,91 @@ def get_survey(survey_id):
         }), 500
     finally:
         cursor.close()
+        db.close()
+
+@survey_bp.route('/<survey_id>', methods=['POST'])
+def submit_survey_response(survey_id):
+    """
+    Submit a new response for a survey
+    Public endpoint - no authentication required
+    Expected JSON format:
+    {
+        "answers": {
+            "question_id": "answer",
+            ...
+        }
+    }
+    """
+    data = request.get_json()
+    if not data or 'answers' not in data:
+        return jsonify({"error": "Missing answers data"}), 400
+    
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        # Start transaction
+        cursor.execute("START TRANSACTION")
+        
+        # First verify the survey exists
+        cursor.execute(
+            "SELECT 1 FROM surveys WHERE id = UUID_TO_BIN(%s)",
+            (survey_id,)
+        )
+        if not cursor.fetchone():
+            return jsonify({"error": "Survey not found"}), 404
+        
+        # Create a new response
+        response_id = uuid.uuid4()
+        cursor.execute(
+            """
+            INSERT INTO responses (id, survey_id)
+            VALUES (UUID_TO_BIN(%s), UUID_TO_BIN(%s))
+            """,
+            (str(response_id), survey_id)
+        )
+        
+        # Get all valid question IDs for this survey
+        cursor.execute(
+            """
+            SELECT BIN_TO_UUID(id) as id
+            FROM questions
+            WHERE survey_id = UUID_TO_BIN(%s)
+            """,
+            (survey_id,)
+        )
+        valid_questions = {row['id'] for row in cursor.fetchall()}
+        
+        # Insert answers
+        for question_id, answer in data['answers'].items():
+            # Skip if question doesn't belong to this survey
+            if question_id not in valid_questions:
+                continue
+                
+            cursor.execute(
+                """
+                INSERT INTO answers (id, response_id, question_id, answer)
+                VALUES (UUID_TO_BIN(%s), UUID_TO_BIN(%s), UUID_TO_BIN(%s), %s)
+                """,
+                (str(uuid.uuid4()), str(response_id), question_id, answer)
+            )
+        
+        # Commit transaction
+        db.commit()
+        
+        return jsonify({
+            "message": "Response submitted successfully",
+            "response_id": str(response_id),
+            "status": "success"
+        }), 201
+        
+    except Exception as e:
+        # Rollback in case of error
+        db.rollback()
+        return jsonify({
+            "error": "Failed to submit response",
+            "message": str(e)
+        }), 500
+    finally:
+        cursor.close()
         db.close() 
