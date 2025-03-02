@@ -316,6 +316,7 @@ def submit_survey_response(survey_id):
     }
     """
     data = request.get_json()
+    print("data", data)
     if not data or 'answers' not in data:
         return jsonify({"error": "Missing answers data"}), 400
     
@@ -354,11 +355,16 @@ def submit_survey_response(survey_id):
             (survey_id,)
         )
         valid_questions = {row['id'] for row in cursor.fetchall()}
+        print("valid_questions", valid_questions)
         
+        answer_pairs = data['answers']
+        print("answer_pairs", answer_pairs)
         # Insert answers
-        for question_id, answer in data['answers'].items():
+        for question_id, answer in answer_pairs:
+            print("question_id", question_id)
+            print("answer", answer)
             # Skip if question doesn't belong to this survey
-            if question_id not in valid_questions:
+            if question_id.strip() not in valid_questions:
                 print("Question ID not in valid questions:", question_id)
                 continue
                 
