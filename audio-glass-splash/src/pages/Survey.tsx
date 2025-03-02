@@ -4,6 +4,7 @@ import cn from "classnames";
 import { AudioRecorder } from "../lib/audio-recorder";
 import { useLiveAPIContext } from "../contexts/LiveAPIContext";
 import { Altair } from "../components/altair/Altair";
+import { useParams } from "react-router-dom";
 
 const API_KEY = "AIzaSyCaBhSLtr-ArpJvZM5U74TlUaMDABCN-Uw";
 if (typeof API_KEY !== "string") {
@@ -14,16 +15,56 @@ const host = "generativelanguage.googleapis.com";
 const uri = `wss://${host}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent`;
 
 function Survey() {
+    const { id } = useParams();
+  const [systemPrompt, setSystemPrompt] = useState<string>('');
+    
+    useEffect(() => {
+      const fetchSurveyData = async () => {
+        try {
+          const response = await fetch(`http://localhost:5000/api/survey/${id}`);
+          const data = await response.json();
+          console.log('Survey data:', data);
+          
+          // Create the full system prompt by appending questions
+          let fullSystemPrompt = data.survey?.system_prompt || '';
+          
+          // Check if questions array exists and has items
+          if (data.survey?.questions && data.survey.questions.length > 0) {
+            // Add a line break before questions if needed
+            if (fullSystemPrompt && !fullSystemPrompt.endsWith('\n')) {
+              fullSystemPrompt += '\n\n';
+            }
+            
+            // Loop through each question and append to the system prompt
+            data.survey.questions.forEach((questionObj: any, index: number) => {
+              if (questionObj.question) {
+                fullSystemPrompt += `${index + 1}. ${questionObj.question} ${questionObj.elaborate ? '(elaborate)' : ''}\n`;
+              }
+            });
+          }
+          
+          console.log('System prompt:', fullSystemPrompt);
+          setSystemPrompt(fullSystemPrompt);
+        } catch (error) {
+          console.error('Error fetching survey data:', error);
+        }
+      };
+      
+      if (id) {
+        fetchSurveyData();
+      }
+    }, [id]);
+    
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#F1F0FB] to-white text-dark-text flex items-center justify-center">
       <LiveAPIProvider url={uri} apiKey={API_KEY}>
-        <SurveyContent />
+        <SurveyContent systemPrompt={systemPrompt} />
       </LiveAPIProvider>
     </div>
   );
 }
 
-function SurveyContent() {
+function SurveyContent({ systemPrompt }: { systemPrompt?: string }) {
   const [muted, setMuted] = useState(true);
   const [audioRecorder] = useState(() => new AudioRecorder());
   const [inVolume, setInVolume] = useState(0);
@@ -41,27 +82,16 @@ function SurveyContent() {
       systemInstruction: {
         parts: [
           {
-            text: `You are acting as Prof to seek feedback about your course. You will be speaking with a student who took it. You will ask the following questions in a casual, natural and informal way. You may ask the questions in any order. Sometimes, the student might even answer multiple questions together without you asking them explicitly. In this case, you don't have to ask the question again.
-
-You should aim to get elaborate and detailed answers from the student so you can improve your course in the future. If the student gives short answers, ask followup questions to gain more insight into their experience.
-
-Once you gather all answers for the questions, you should thank the student and end the conversation.
-
-Here are the questions:
-
-How was course difficulty (rate from 1 to 10 and explain why)
-what is something that the prof could have done better?
-what was effective and not effective in the prof's teaching styles?
-were the assessments fair? rate 1 to 10 and explain.`,
+            text: systemPrompt,
           },
         ],
       },
     });
-  }, [setConfig]);
+  }, [setConfig, systemPrompt]);
 
   return (
     <MicrophoneButton 
-      muted={muted} 
+      muted={muted}
       setMuted={setMuted} 
       audioRecorder={audioRecorder}
       setInVolume={setInVolume}
