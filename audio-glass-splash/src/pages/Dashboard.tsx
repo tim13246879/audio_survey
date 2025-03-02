@@ -29,6 +29,7 @@ interface Survey {
   created_at: string;
   updated_at: string;
   questions: Question[];
+  response_count?: number;
 }
 
 const Dashboard = () => {
@@ -39,6 +40,35 @@ const Dashboard = () => {
   const { isAuthenticated, handleSignOut, token } = useGoogleAuth();
   const API_BASE_URL = 'http://localhost:5000/api';
   const navigate = useNavigate();
+  
+  // Fetch response counts for all surveys
+  const fetchResponseCounts = async (surveysData: Survey[]) => {
+    try {
+      const updatedSurveys = await Promise.all(
+        surveysData.map(async (survey) => {
+          try {
+            const response = await fetch(`${API_BASE_URL}/survey/${survey.id}/responses`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            if (!response.ok) throw new Error('Failed to fetch responses');
+            const data = await response.json();
+            return {
+              ...survey,
+              response_count: data.responses?.length || 0
+            };
+          } catch (error) {
+            console.error(`Error fetching responses for survey ${survey.id}:`, error);
+            return survey;
+          }
+        })
+      );
+      setSurveys(updatedSurveys);
+    } catch (error) {
+      console.error('Error fetching response counts:', error);
+    }
+  };
   
   useEffect(() => {
     const fetchSurveys = async () => {
@@ -60,6 +90,8 @@ const Dashboard = () => {
         }
         const data = await response.json();
         setSurveys(data.surveys);
+        // Fetch response counts after getting surveys
+        await fetchResponseCounts(data.surveys);
       } catch (error) {
         toast({
           title: "Error",
@@ -199,6 +231,8 @@ const Dashboard = () => {
                         <MessageSquare className="h-3 w-3 text-muted-foreground mr-1" />
                         <span className="text-xs text-muted-foreground">{survey.questions.length} questions</span>
                         <span className="text-xs text-muted-foreground mx-2">•</span>
+                        <span className="text-xs text-muted-foreground">{survey.response_count || 0} responses</span>
+                        <span className="text-xs text-muted-foreground mx-2">•</span>
                         <span className="text-xs text-muted-foreground">Created {new Date(survey.created_at).toLocaleDateString()}</span>
                         <span className="text-xs text-muted-foreground mx-2">•</span>
                         <div className="flex items-center">
@@ -253,16 +287,16 @@ const Dashboard = () => {
               
               <div className="bg-accent/30 rounded-lg p-4 text-center">
                 <div className="text-2xl font-semibold">
-                  {surveys.reduce((sum, survey) => sum + survey.questions.length, 0)}
+                  {surveys.reduce((sum, survey) => sum + (survey.response_count || 0), 0)}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Total Questions</div>
+                <div className="text-xs text-muted-foreground mt-1">Total Responses</div>
               </div>
               
               <div className="bg-accent/30 rounded-lg p-4 text-center">
                 <div className="text-2xl font-semibold">
-                  {surveys.length ? Math.round(surveys.reduce((sum, survey) => sum + survey.questions.length, 0) / surveys.length) : 0}
+                  {surveys.length ? Math.round(surveys.reduce((sum, survey) => sum + (survey.response_count || 0), 0) / surveys.length) : 0}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Avg Questions</div>
+                <div className="text-xs text-muted-foreground mt-1">Avg Responses</div>
               </div>
             </div>
           </div>
