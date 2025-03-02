@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import AudioSurveyLogo from "@/components/AudioSurveyLogo";
 import BackgroundElements from "@/components/BackgroundElements";
@@ -42,7 +42,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   
   // Fetch response counts for all surveys
-  const fetchResponseCounts = async (surveysData: Survey[]) => {
+  const fetchResponseCounts = useCallback(async (surveysData: Survey[]) => {
     try {
       const updatedSurveys = await Promise.all(
         surveysData.map(async (survey) => {
@@ -68,7 +68,7 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Error fetching response counts:', error);
     }
-  };
+  }, [token]);
   
   useEffect(() => {
     const fetchSurveys = async () => {
@@ -106,7 +106,7 @@ const Dashboard = () => {
     if (isAuthenticated && token) {
       fetchSurveys();
     }
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated, token, fetchResponseCounts]);
 
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
