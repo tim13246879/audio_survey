@@ -138,7 +138,7 @@ const Dashboard = () => {
   };
 
   const handleCopyLink = async (surveyId: string) => {
-    const url = `http://localhost:6000/${surveyId}`;
+    const url = `http://localhost:8080/survey/${surveyId}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopiedId(surveyId);
